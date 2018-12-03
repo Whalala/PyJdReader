@@ -11,29 +11,33 @@ def log(msg):
 
 
 class PyJdReader:
-    def __init__(self):
+    def __init__(self, logger):
         self.settings = Settings()
         self.rect = self.settings.Rect
         self.helper = PyJdHelper()
+        if logger is None:
+            self.logger = self
+        else:
+            self.logger = logger
 
 
-    def clipImage(self, rect):
+    def crop_image(self, rect):
         image = ImageGrab.grab()
         clip = image.crop(rect)
         return clip
 
-    def preProcess(self, img):
+    def pre_process(self, img):
         pass
 
-    def hasMore(self):
+    def has_more(self):
         self.helper.clickMouseLeft(self.settings.PercentBoxCenter)
         self.helper.pressCtrlAndKey('a')
         self.helper.pressCtrlAndKey('c')
         percent = self.helper.getClipboard()
         return float(percent) < 100
 
-    def savePage2Pictures(self, fp, startIndex = 1, fromStart = False):
-        print("hello. I am PyJdReader.")
+    def save2pictures(self, fp, startIndex = 1, fromStart = False):
+        self.logger.write_line("hello. I am PyJdReader.")
         #1. Active the JdReader to foregroud
         self.helper.clickMouseLeft(self.settings.TaskBarLocation)
         if fromStart:
@@ -44,24 +48,25 @@ class PyJdReader:
         pageNo = startIndex
 
 
-        while self.hasMore():
-            img = self.clipImage(self.rect)
+        while self.has_more():
+            img = self.crop_image(self.rect)
             fn = fp + '%05d' % pageNo + '.jpg'
             img.save(fn)
-            print('Save to ' + fn)
+            self.logger.write_line('Save to ' + fn)
             pageNo += 1
-            self.clickNextPage()
+            self.click_next_page()
         # The last page
-        img = self.clipImage(self.rect)
+        img = self.crop_image(self.rect)
         fn = fp + '%05d' % pageNo + '.jpg'
         img.save(fn)
         print('Save to ' + fn)
-        pageNo += 1
+        return pageNo
 
-    def clickNextPage(self):
+
+    def click_next_page(self):
         self.helper.clickMouseLeft(self.settings.NextButtonCenter)
 
-    def mergePictures2Pdf(self, imagesPath, pdfPath):
+    def merge2pdf(self, imagesPath, pdfPath):
         pdf = FPDF(orientation='P', unit='mm', format='A4')
         for im in os.listdir(imagesPath):
             img = Image.open(imagesPath + im)
@@ -69,10 +74,12 @@ class PyJdReader:
             pdf.image(imagesPath + im, -0, 0, pdf.w * 0.99, pdf.h * 0.99)  # , img.width, img.height)
         pdf.output(pdfPath, "F")
 
-    def convert2Bw(self, imagesPath, out_path, gray = False):
+    def convert2grey(self, imagesPath, out_path, grey = False):
+        page = 0
         for im in os.listdir(imagesPath):
             img = Image.open(imagesPath + im)
-            if gray:
+            page += 1
+            if grey:
                 img2 = img.convert('L')
             else:
                 img2 = img.convert('1')
@@ -80,4 +87,8 @@ class PyJdReader:
                 os.mkdir(out_path)
                 log("mkdir " + out_path)
             img2.save(out_path + im)
+        return page
 
+    def write_line(self, msg):
+        print(msg)
+#         self.logger.write_line
